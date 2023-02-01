@@ -1,0 +1,374 @@
+<html>
+<!--
+ Licensed to the Apache Software Foundation (ASF) under one or more
+ contributor license agreements.  See the NOTICE file distributed with
+ this work for additional information regarding copyright ownership.
+ The ASF licenses this file to You under the Apache License, Version 2.0
+ (the "License"); you may not use this file except in compliance with
+ the License.  You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<head>
+<!--    <link rel="stylesheet" href="https://unpkg.com/purecss@2.0.6/build/pure-min.css" integrity="sha384-Uu6IeWbM+gzNVXJcM9XV3SohHtmWE+3VGi496jvgX1jyvDTXfdK+rfZc8C1Aehk5" crossorigin="anonymous">-->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+    <link rel="stylesheet" type="text/css" href="./water.css">
+</head>
+
+<script type="text/javascript">
+        /**
+         * Returns AJAX HTTP requester in a browser-sensitive fashion
+         * @returns {getSelf}
+         */
+        function getSelf() {
+            var self = this;
+            if (window.XMLHttpRequest) {      // Mozilla, Safari, Chrome, Opera, etc...
+                self.xmlHttpReq = new XMLHttpRequest();
+            }
+            else if (window.ActiveXObject) {  // IE
+                self.xmlHttpReq = new ActiveXObject("Microsoft.XMLHTTP");
+            }
+            return self;
+        }
+        /**
+         * Main function that is called when click on "Search" button
+         * Makes a HTTP request and reads the response
+         */
+        function doRoutes() {
+            var query = document.getElementById("query").value;
+            if (query.length <= 0) {
+                return;
+            }
+            var self = getSelf();
+
+            url = "transit/routes_with_stops?filter=" + query;
+
+            var targetUrl = document.getElementById("targetUrl");
+            targetUrl.innerHTML = 'http://localhost:1984/' + url;
+            self.xmlHttpReq.open('GET', targetUrl.innerHTML, true);
+            self.xmlHttpReq.setRequestHeader('Content-Type', 'application/json');
+            self.xmlHttpReq.setRequestHeader('Accept', 'application/json');
+            self.xmlHttpReq.onreadystatechange = function () {
+                if (self.xmlHttpReq.readyState == 4) {
+                    var timeTaken = (Math.round((performance.now() - startTime) * 100) / 100).toFixed(1);
+                    var rawResponse = self.xmlHttpReq.responseText;
+                    var routesOutput = document.getElementById("routesOutput");
+                    routesOutput.innerHTML = formatRoutes(rawResponse);
+                    var heading = document.getElementById("foundRoutes");
+                    var foundRoutes = countEntries(rawResponse);
+                    heading.innerHTML = "Found Routes: " + foundRoutes + " in " + timeTaken + " ms";
+                    doStops();
+                }
+            };
+            var startTime = performance.now();
+            self.xmlHttpReq.send();
+        }
+
+       /**
+         * @param argJSON  the raw JSON string
+         * @returns the number of entries
+         */
+        function countEntries(argJSON) {
+            var obj = JSON.parse(argJSON);
+            if (obj.length > 0) {
+                return obj.length;
+            }
+            return 0;
+        }
+
+        /**
+         * @param argJSON the raw JSON string
+         * @returns Returns the HTML formatted from the raw JSON string represnting the "Found Routes"
+         */
+        function formatRoutes(argJSON) {
+            var obj = JSON.parse(argJSON);
+            if (obj.length > 0) {
+                var output = "";
+                for (var i = 0; i < obj.length; i++) {
+                    var entry = obj[i];
+                    var attributes = entry["attributes"];
+                    var stopBeanMap = entry["stopBeanMap"];
+                    var details = generateStopDetail(stopBeanMap);
+                    var title = attributes["long_name"] + " (" + countProperties(stopBeanMap) + " stops )";
+                    output += generateEntry(i, title, details, attributes["color"]);
+                }
+            }
+            return output;
+        }
+
+        /**
+         * Main function that is called when click on "Search" button
+         * Makes a HTTP request and reads the response
+         */
+        function doStops() {
+            var query = document.getElementById("query").value;
+            if (query.length <= 0) {
+                return;
+            }
+            var self = getSelf();
+
+            url = "transit/stops_with_routes?filter=" + query;
+
+            var targetUrl = document.getElementById("targetUrl");
+            targetUrl.innerHTML = 'http://localhost:1984/' + url;
+            self.xmlHttpReq.open('GET', targetUrl.innerHTML, true);
+            self.xmlHttpReq.setRequestHeader('Content-Type', 'application/json');
+            self.xmlHttpReq.setRequestHeader('Accept', 'application/json');
+            self.xmlHttpReq.onreadystatechange = function () {
+                if (self.xmlHttpReq.readyState == 4) {
+                    var timeTaken = (Math.round((performance.now() - startTime) * 100) / 100).toFixed(1);
+                    var rawResponse = self.xmlHttpReq.responseText;
+                    var stopsOutput = document.getElementById("stopsOutput");
+                    stopsOutput.innerHTML = formatStops(rawResponse);
+                    var heading = document.getElementById("foundStops");
+                    var foundStops = countStops(rawResponse);
+                    heading.innerHTML = "Found Stops with Transferes: " + foundStops + " in " + timeTaken + " ms";
+                }
+            };
+            var startTime = performance.now();
+            self.xmlHttpReq.send();
+        }
+
+        /**
+         * @param argJSON the raw JSON string
+         * @returns Returns the HTML formatted from the raw JSON string represnting the "Found Stops"
+         */
+        function formatStops(argJSON) {
+            var obj = JSON.parse(argJSON);
+            var output = "";
+            Object.keys(obj).forEach(function(key,index) {
+                var entry = obj[key];
+                if (entry) {
+                    var routeBeanMap = entry["routeBeanMap"];
+                    var foundRoutes = countProperties(routeBeanMap)
+                    if (foundRoutes > 1) {
+                        var details = generateRouteDetail(routeBeanMap);
+                        var title = entry["attributes"]["name"] +  " (" + foundRoutes + " routes )";
+                        output += generateEntry(index + 1000, title, details, "GREY");
+                    }
+                }
+            });
+            return output;
+        }
+
+        /**
+         * Main function that is called when click on "Search" button
+         * Makes a HTTP request and reads the response
+         */
+        function doRouteTrace() {
+            var query = document.getElementById("query").value;
+            if (query.length <= 0) {
+                return;
+            }
+            var self = getSelf();
+
+            var initialStop = document.getElementById("initialStop").value;
+            var destinationStop = document.getElementById("destinationStop").value;
+            url = "transit/routes_trace?filter=" + query + "&initial_stop=" + initialStop + "&destination_stop=" + destinationStop;
+
+            var targetUrl = 'http://localhost:1984/' + url;
+            self.xmlHttpReq.open('GET', targetUrl, true);
+            self.xmlHttpReq.setRequestHeader('Content-Type', 'application/json');
+            self.xmlHttpReq.setRequestHeader('Accept', 'application/json');
+            self.xmlHttpReq.onreadystatechange = function () {
+                if (self.xmlHttpReq.readyState == 4) {
+                    var timeTaken = (Math.round((performance.now() - startTime) * 100) / 100).toFixed(1);
+                    var rawResponse = self.xmlHttpReq.responseText;
+                    var routesTrace = document.getElementById("routesTrace");
+                    routesTrace.innerHTML = formatRouteTrace(rawResponse);
+                    var routesHeader = document.getElementById("routesHeader");
+                    routesHeader.innerHTML = "Routes: in " + timeTaken + " ms";
+                }
+            };
+            var startTime = performance.now();
+            self.xmlHttpReq.send();
+        }
+
+        /**
+         * @param argJSON the raw JSON string
+         * @returns Returns the HTML formatted from the raw JSON string represnting the "Found Stops"
+         */
+        function formatRouteTrace(argJSON) {
+            if (argJSON.length <= 0) {
+                return;
+            }
+            var obj = JSON.parse(argJSON);
+            var output = "<div style='font-weight: bold;color:GREY'>" + obj["initialStop"]["attributes"]["name"] + " ==> " + obj["destinationStop"]["attributes"]["name"] + "</div>";
+            var routeTraceMap = obj["routeTraceMap"];
+            Object.keys(routeTraceMap).forEach(function(key,index) {
+                var routeStopBean = routeTraceMap[key];
+                if (routeStopBean) {
+                    var routeBean = routeStopBean["route"];
+                    var routeName = routeBean["attributes"]["long_name"];
+                    var color = routeBean["attributes"]["color"];
+                    var stopBean = routeStopBean["stop"];
+                    var stopName = stopBean["attributes"]["name"];
+                    output += "<div style='font-weight: bold;color:" + color + "'> > " + stopName + "  /  " + routeName + "</div>";
+                }
+            });
+            return output;
+        }
+
+
+        /**
+         * @param argJSON the raw JSON string
+         * @returns Returns the HTML formatted from the raw JSON string represnting the "Found Stops"
+         */
+        function countStops(argJSON) {
+            var obj = JSON.parse(argJSON);
+            var i = 0;
+            Object.keys(obj).forEach(function(key,index) {
+                var entry = obj[key];
+                if (entry.length > 1) {
+                    i++;
+                }
+            });
+            return i;
+        }
+
+        /**
+         * @param argJSON the raw JSON string
+         * @returns Returns the HTML formatted from the raw JSON string represnting the "Found Properties"
+         */
+        function countProperties(argObj) {
+            var count = 0;
+            Object.keys(argObj).forEach(function(key,index) {
+                var entry = argObj[key];
+                if (entry) {
+                    count++;
+                }
+            });
+            return count;
+        }
+
+        /**
+         * Returns formatted HTML representing on entry in the list
+         * @param argIndex the index of the entry
+         * @param argTitle the title of th entry
+         * @param argDetails the details (collapsable) portion of the entry
+         * @returns {string}
+         */
+        function generateEntry(argIndex, argTitle, argDetails, argColor) {    // " + argCount + "
+            var entry =
+                "<div id='entryHeader_" + argIndex + "'>" +
+                "<a id='entryControl_" + argIndex + "' style='text-decoration:none' href='javascript:expandCollapse(\"entryDetails_" + argIndex + "\", \"entryControl_" + argIndex + "\");'>[+]</a>" +
+                // "&nbsp;<a id='entryTitle_" + argIndex + "' style='color:" + argColor + "' style='font-weight: bold'>" + argTitle + "</a>" +
+                "&nbsp;<a id='entryTitle_" + argIndex + "' style='color:" + argColor + ";font-weight: bold'>" + argTitle + "</a>" +
+                "</div>" +
+                "<div id='entryDetails_" + argIndex + "' style='display: none;'>" + argDetails + "</div>";
+            return entry;
+        }
+
+        /**
+         * Returns formatted HTML representing the details portion of the entry
+         * @param argDoc the object representing the entire entry
+         * @returns {string}
+         */
+        function generateStopDetail(argDoc) {
+            var details = "";
+            for (var prop in argDoc) {
+                if (argDoc.hasOwnProperty(prop)) {
+                    // or if (Object.prototype.hasOwnProperty.call(obj,prop)) for safety...
+                    details += "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + argDoc[prop]["attributes"]["name"] + "<br>";
+                }
+            }
+            return details;
+        }
+
+        /**
+         * Returns formatted HTML representing the details portion of the entry
+         * @param argDoc the object representing the entire entry
+         * @returns {string}
+         */
+        function generateRouteDetail(argDoc) {
+            var details = "";
+            for (var prop in argDoc) {
+                if (argDoc.hasOwnProperty(prop)) {
+                    // or if (Object.prototype.hasOwnProperty.call(obj,prop)) for safety...
+                    details += "<div style='font-weight: bold;color: " + argDoc[prop]["attributes"]["color"] + "'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + argDoc[prop]["attributes"]["long_name"] + "</div>";
+                }
+            }
+            return details;
+        }
+
+        /**
+         * Responsible for expanding or collapsing the "details" protion of the entry in the result list
+         * @param argRargetDivId the id if the div to shoe expand or collapse
+         * @param argControlTagId the id of the element representing the expand/collapse control
+         */
+        function expandCollapse(argRargetDivId, argControlTagId) {
+            var ele = document.getElementById(argRargetDivId);
+            var imageEle = document.getElementById(argControlTagId);
+            if(ele.style.display == "block") {
+                ele.style.display = "none";
+                imageEle.innerHTML = '[+]';
+            }
+            else {
+                ele.style.display = "block";
+                imageEle.innerHTML = '[--]';
+            }
+        }
+    </script>
+
+<body>
+<p style="font-weight: bold; font-size: 40">ROUTES with STOPS: search by type</p>
+<br>
+
+<table cellpadding="5" cellspacing="5" width="1000">
+    <tr valign="top">
+<!--        <td><b>Include types (coma-separated): </b></td><td colspan="2" allign="left"><input type="textarea" id="query" name="query" value="" rows=4, cols="100" style="width:370px" oninput='doRoutes()'></input></td>-->
+        <td colspan="2"><b>Include route types (coma-separated): </b></td><td colspan="2" allign="left"><input type="textarea" id="query" name="query" value="0,1" rows=4, cols="100" style="width:370px"></input></td>
+        <td><input type="button" value="GET ROUTES" onclick="doRoutes()"/></td>
+    </tr>
+    <tr valign="top">
+        <td><b>URL: </b></td><td colspan="5"><p id="targetUrl" name="targetUrl" cols="198" rows="1"></p></td>
+    </tr>
+</table>
+
+</p>
+
+<table cellpadding="5" cellspacing="5" width="1000">
+    <tr style="background:#A0A0A0; font-weight: bold;">
+        <th style="background:#A0A0A0; font-weight: bold;"><p align="left" id="foundRoutes" name="foundRoutes">Found Routes</p></th>
+    </tr>
+    <tr style="background:#F0F0F0 ; width: 100%;height: 100%;">
+        <td valign="top" width="100%"><div id="routesOutput" name="routesOutput"></div></td>
+    </tr>
+</table>
+<br/>
+<table cellpadding="5" cellspacing="5" width="1000">
+    <tr style="background:#A0A0A0; font-weight: bold;">
+        <th style="background:#A0A0A0; font-weight: bold;"><p align="left" id="foundStops" name="foundStops">Found Stops with Transferes</p></th>
+    </tr>
+    <tr style="background:#F0F0F0 ; width: 100%;height: 100%;">
+        <td valign="top" width="100%"><div id="stopsOutput" name="stopsOutput"></div></td>
+    </tr>
+</table>
+
+<br>
+<p style="font-weight: bold; font-size: 40">ROUTES tracing</p>
+<br>
+
+<table cellpadding="10" cellspacing="10" width="1000">
+    <tr valign="top">
+        <td colspan="1" ><b>From: </b></td><td colspan="2" allign="left"><input type="textarea" id="initialStop" name="initialStop" value="Alewife" rows=4, cols="100" style="width:370px"></input></td>
+        <td colspan="1"> </td>
+        <td colspan="1"><b>To:  </b></td><td colspan="2" allign="left"><input type="textarea" id="destinationStop" name="destinationStop" value="Riverside" rows=4, cols="100" style="width:370px"></input></td>
+        <td> </td>
+        <td colspan="1"><input type="button" value="TRACE ROUTES" onclick="doRouteTrace()"/></td>   </tr>
+    <tr valign="top">
+        <td colspan="2" ><p id="routesHeader" name="routesHeader" cols="60" rows="1"></p></td><td colspan="5"><p id="routesTrace" name="routesTrace" cols="198" rows="1"></p></td>
+    </tr>
+</table>
+
+
+</body>
+
+</html>

@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="newapp" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <module name="newApp" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.example.vlad.basic.Application" />
+    <option name="VM_PARAMETERS" value="-Dspring.h2.console.enabled=true" />
+    <option name="ALTERNATIVE_JRE_PATH" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

@@ -1,0 +1,35 @@
+# See http://docs.spring.io/spring-boot/docs/current/reference/html/common-application-properties.html
+
+# The entry below fixes the nasty warnings related to Tomcat 8.x scanning of JAR's Manifest files
+server.tomcat.additional-tld-skip-patterns: "*.jar"
+
+identity:
+  appname: "MBTA Routing demo application"
+  author:  "Vladimir Shlimovich"
+
+#Spring Boot Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ["health","info","metrics","shutdown"]
+      base-path: /actuator
+  endpoint:
+    shutdown:
+      enabled: true
+
+server.port: ${SURESCRIPTS_BOOT_PORT:1984}
+
+logging:
+  file.name:                                     "${LOG_DIR:C:/local/logs}/newApp.log"
+  level.org.springframework.web:                 "INFO"
+  level.org.hibernate:                           "ERROR"
+  level.com.patientkeeper.surescripts:           "INFO"
+  level.com.example.vlad.transit.service.mbta:   "DEBUG"
+  level.com.example.vlad.transit.connector.mbta: "DEBUG"
+
+mbta-connector:
+  base-url: "https://api-v3.mbta.com"
+  x-api-key: "a7910298f5b444a8ae9b6683ce51c782"
+  useLastModifiedCache: true
+
